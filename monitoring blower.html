@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Condition Monitoring Roots Blower</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 font-sans antialiased">
+
+  <!-- HEADER UTAMA -->
+  <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-slate-900/80 backdrop-blur border border-slate-800 p-5 rounded-2xl shadow-xl mb-6">
+    <div class="flex items-center gap-4">
+      <div class="p-3.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
+        <i class="fa-solid fa-fan text-3xl text-white animate-spin-slow"></i>
+      </div>
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-200">
+          CONDITION MONITORING ROOTS BLOWER
+        </h1>
+        <p class="text-xs text-slate-400">System Analytics & Vibration Trend Diagnostics</p>
+      </div>
+    </div>
+
+    <button onclick="addNewCustomerModal()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition active:scale-95">
+      <i class="fa-solid fa-plus text-xs"></i> <span>Tambah PT Kustomer Baru</span>
+    </button>
+  </header>
+
+  <!-- BANNER NOTIFIKASI JADWAL PENGECEKAN -->
+  <div id="notificationBanner" class="hidden mb-6 p-4 rounded-2xl border bg-amber-500/10 border-amber-500/30 text-amber-300 flex items-center justify-between shadow-lg">
+    <div class="flex items-center gap-3">
+      <div class="p-2 bg-amber-500/20 rounded-lg text-amber-400">
+        <i class="fa-solid fa-bell text-lg animate-bounce"></i>
+      </div>
+      <div>
+        <h4 class="text-xs font-bold uppercase tracking-wider">Peringatan Jadwal Inspection!</h4>
+        <p id="notificationText" class="text-xs">Beberapa unit mesin sudah memasuki/melewati tanggal pengecekan.</p>
+      </div>
+    </div>
+    <span class="text-[10px] bg-amber-500/20 px-2.5 py-1 rounded-full border border-amber-500/40 font-bold" id="notifBadge">0 UNIT DILUAR JADWAL</span>
+  </div>
+
+  <!-- ALUR FILTRASI UTAMA (HIRARKI KONSEP) -->
+  <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-xl mb-6">
+    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+      <i class="fa-solid fa-filter text-blue-400"></i> Alur Seleksi Monitoring
+    </h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- 1. KATEGORI PM -->
+      <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+        <label class="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">1. Tipe PM Contract</label>
+        <select id="pmCategoryFilter" onchange="onPmCategoryChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-amber-400 outline-none focus:border-amber-500">
+          <option value="PM Berbayar">💳 PM Berbayar</option>
+          <option value="PM Prioritas">⭐ PM Prioritas</option>
+          <option value="PM Biasa">⚙️ PM Biasa</option>
+          <option value="PM Backup">🛡️ PM Backup</option>
+        </select>
+      </div>
+
+      <!-- 2. PILIHAN CUSTOMER -->
+      <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+        <label class="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">2. PT Customer</label>
+        <select id="customerSelect" onchange="onCustomerChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-blue-500">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <!-- 3. DATA UNIT MESIN -->
+      <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+        <div class="flex justify-between items-center mb-1">
+          <label class="block text-[10px] text-slate-400 font-semibold uppercase">3. Unit Mesin</label>
+          <button onclick="addNewUnitPrompt()" class="text-[10px] text-blue-400 hover:underline">+ Unit Baru</button>
+        </div>
+        <select id="machineSelect" onchange="onMachineChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-blue-300 font-bold outline-none focus:border-blue-500">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORM INPUT VIBRASI 6 TITIK & SETTING LIMIT -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    
+    <!-- FORM INPUT HASIL 6 TITIK VIBRASI -->
+    <div class="lg:col-span-2 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl shadow-xl">
+      <div class="flex justify-between items-center mb-4">
+        <h2 id="formTitle" class="text-md font-semibold text-blue-400 flex items-center gap-2">
+          <i class="fa-solid fa-sliders"></i> <span>Input Hasil Vibrasi Unit (<span id="formUnitLabel" class="text-white">Unit</span>)</span>
+        </h2>
+        <button id="cancelEditBtn" onclick="resetForm()" class="hidden text-xs text-rose-400 hover:underline">
+          <i class="fa-solid fa-xmark"></i> Batal Edit
+        </button>
+      </div>
+
+      <form id="vibrationForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+        <input type="hidden" id="editId" value="">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Tanggal Pengecekan</label>
+            <input type="date" id="inputDate" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Waktu Check</label>
+            <input type="time" id="inputTime" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Jadwal Cek Berikutnya (Due Date)</label>
+            <input type="date" id="inputNextDate" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-400 font-bold outline-none focus:border-amber-500">
+          </div>
+        </div>
+
+        <!-- 4. HASIL 6 TITIK VIBRASI BLOWER -->
+        <div class="pt-2">
+          <label class="block text-xs text-slate-400 mb-2 font-medium">Hasil Ukur 6 Titik Vibrasi Blower ($mm/s$ RMS):</label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+              <span class="block text-[10px] text-blue-400 font-bold mb-1">1H (Motor In)</span>
+              <input type="number" step="0.1" id="p1" placeholder="0.0" required class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-blue-500">
+            </div>
+            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+              <span class="block text-[10px] text-emerald-400 font-bold mb-1">1V (Motor In)</span>
+              <input type="number" step="0.1" id="p2" placeholder="0.0" required class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500">
+            </div>
+            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+              <span class="block text-[10px] text-cyan-400 font-bold mb-1">1A (Motor In)</span>
+              <input type="number" step="0.1" id="p3" placeholder="0.0" required class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-cyan-500">
+            </div>
+            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+              <span class="block text-[10px] text-amber-400 font-bold mb-1">2H (Blower Out)</span>
+              <input type="number" step="0.1" id="p4" placeholder="0.0" required class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-amber-500">
+            </div>
+            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+              <span class="block text-[10px] text-pink-400 font-bold mb-1">2V (Blower Out)</span>
+              <input type="number" step="0.1" id="p5" placeholder="0.0" required class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-pink-500">
+            </div>
+            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+              <span class="block text-[10px] text-purple-400 font-bold mb-1">2A (Blower Out)</span>
+              <input type="number" step="0.1" id="p6" placeholder="0.0" required class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-purple-500">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button type="submit" id="submitBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition">
+            <i class="fa-solid fa-floppy-disk"></i> <span>Simpan Data Vibrasi Unit</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- PENGATURAN LIMIT VIBRASI (BISA DIATUR SENDIRI) -->
+    <div class="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl shadow-xl flex flex-col justify-between">
+      <div>
+        <h2 class="text-md font-semibold text-amber-400 mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved"></i> <span>Limit Vibrasi Standard</span>
+        </h2>
+        <p class="text-xs text-slate-400 mb-4">Pengaturan threshold standar ambang batas ($mm/s$ RMS):</p>
+        
+        <div class="space-y-3">
+          <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+            <label class="block text-xs text-amber-300 font-medium mb-1">Batas Warning (Peringatan):</label>
+            <div class="flex items-center gap-2">
+              <input type="number" step="0.1" id="limitWarning" value="2.8" onchange="updateLimits()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-amber-400 font-bold outline-none">
+              <span class="text-xs text-slate-400">mm/s</span>
+            </div>
+          </div>
+
+          <div class="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
+            <label class="block text-xs text-rose-300 font-medium mb-1">Batas Danger (Bahaya/Alarm):</label>
+            <div class="flex items-center gap-2">
+              <input type="number" step="0.1" id="limitDanger" value="4.5" onchange="updateLimits()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-rose-400 font-bold outline-none">
+              <span class="text-xs text-slate-400">mm/s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 p-3 bg-slate-800/30 border border-slate-800 rounded-xl">
+        <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-circle-info text-blue-400"></i> Disetujui berdasarkan spesifikasi standar ISO 10816.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. GRAFIK SETIAP UNITNYA -->
+  <div class="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl shadow-xl mb-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div>
+        <h2 class="text-md font-semibold text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-chart-line text-blue-400"></i> Grafik Vibration Unit: <span id="chartUnitTitle" class="text-blue-400 font-bold">-</span>
+        </h2>
+        <p class="text-xs text-slate-400">Menampilkan grafik trend historis 6 titik khusus untuk unit yang dipilah</p>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-slate-400">Tipe Grafik:</label>
+        <select id="chartTypeSelect" onchange="changeChartType()" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none">
+          <option value="line">📈 Grafik Line (Trend)</option>
+          <option value="bar">📊 Grafik Bar (Batang)</option>
+          <option value="radar">🕸️ Grafik Radar (Spider Area)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="relative w-full h-[360px]">
+      <canvas id="vibrationChart"></canvas>
+    </div>
+  </div>
+
+  <!-- TABEL RIWAYAT LOG -->
+  <div class="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl shadow-xl">
+    <h3 class="text-md font-semibold text-slate-200 mb-4 flex items-center gap-2">
+      <i class="fa-solid fa-database text-indigo-400"></i> Riwayat Log 6 Titik Vibrasi
+    </h3>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs text-slate-300">
+        <thead class="bg-slate-800/70 text-slate-400 uppercase text-[10px] tracking-wider">
+          <tr>
+            <th class="p-3.5 rounded-l-xl">Tanggal & Waktu</th>
+            <th class="p-3.5">Unit Mesin</th>
+            <th class="p-3.5">1H</th>
+            <th class="p-3.5">1V</th>
+            <th class="p-3.5">1A</th>
+            <th class="p-3.5">2H</th>
+            <th class="p-3.5">2V</th>
+            <th class="p-3.5">2A</th>
+            <th class="p-3.5">Status</th>
+            <th class="p-3.5 rounded-r-xl text-center">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="dataTableBody" class="divide-y divide-slate-800/50">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC DENGAN TATA KELOLA MODULAR DATA & NOTIFIKASI -->
+  <script>
+    let warningLimit = 2.8;
+    let dangerLimit = 4.5;
+
+    // DATA STRUCTURE TERINTEGRASI LENGKAP
+    let defaultData = [
+      {
+        id: 1,
+        customerName: 'PT BAS',
+        pmCategory: 'PM Prioritas',
+        machineName: 'Blower Utama 01',
+        logs: [
+          { id: 101, date: '2026-08-01', time: '08:00', nextDate: '2026-08-15', p1: 1.2, p2: 1.4, p3: 0.9, p4: 2.1, p5: 1.8, p6: 1.0 },
+          { id: 102, date: '2026-08-15', time: '08:30', nextDate: '2026-08-18', p1: 1.5, p2: 1.6, p3: 1.0, p4: 3.1, p5: 2.2, p6: 1.2 }
+        ]
+      },
+      {
+        id: 2,
+        customerName: 'PT BAS',
+        pmCategory: 'PM Prioritas',
+        machineName: 'Blower Aerasi 02',
+        logs: [
+          { id: 201, date: '2026-08-10', time: '09:00', nextDate: '2026-08-25', p1: 0.8, p2: 0.9, p3: 0.6, p4: 1.5, p5: 1.2, p6: 0.7 }
+        ]
+      },
+      {
+        id: 3,
+        customerName: 'PT Cement Nusantara',
+        pmCategory: 'PM Berbayar',
+        machineName: 'Kiln Blower A',
+        logs: [
+          { id: 301, date: '2026-08-05', time: '10:00', nextDate: '2026-08-19', p1: 2.0, p2: 2.2, p3: 1.5, p4: 4.6, p5: 3.8, p6: 2.1 }
+        ]
+      },
+      {
+        id: 4,
+        customerName: 'PT Indonesia Power',
+        pmCategory: 'PM Backup',
+        machineName: 'Unit Standby B',
+        logs: [
+          { id: 401, date: '2026-07-20', time: '11:00', nextDate: '2026-08-03', p1: 1.0, p2: 1.1, p3: 0.8, p4: 1.9, p5: 1.4, p6: 0.9 }
+        ]
+      }
+    ];
+
+    let store = JSON.parse(localStorage.getItem('vibro_root_blower_db')) || defaultData;
+    let vibrationChart;
+    let currentChartType = 'line';
+
+    // RENDER FILTER OPTIONS DENGAN DROPDOWN BERANTAI
+    function initFilters() {
+      renderCustomers();
+      renderMachines();
+      checkNotifications();
+      updateUI();
+    }
+
+    function onPmCategoryChange() {
+      renderCustomers();
+      renderMachines();
+      updateUI();
+    }
+
+    function onCustomerChange() {
+      renderMachines();
+      updateUI();
+    }
+
+    function onMachineChange() {
+      updateUI();
+    }
+
+    function renderCustomers() {
+      const pmCat = document.getElementById('pmCategoryFilter').value;
+      const custSelect = document.getElementById('customerSelect');
+      
+      const filteredCustomers = [...new Set(store.filter(item => item.pmCategory === pmCat).map(item => item.customerName))];
+      
+      custSelect.innerHTML = filteredCustomers.length > 0 
+        ? filteredCustomers.map(c => `<option value="${c}">${c}</option>`).join('')
+        : '<option value="">(Tidak Ada Kustomer)</option>';
+    }
+
+    function renderMachines() {
+      const pmCat = document.getElementById('pmCategoryFilter').value;
+      const cust = document.getElementById('customerSelect').value;
+      const machineSelect = document.getElementById('machineSelect');
+
+      const filteredMachines = store.filter(item => item.pmCategory === pmCat && item.customerName === cust);
+
+      machineSelect.innerHTML = filteredMachines.length > 0
+        ? filteredMachines.map(m => `<option value="${m.machineName}">${m.machineName}</option>`).join('')
+        : '<option value="">(Tidak Ada Unit)</option>';
+    }
+
+    function getSelectedUnitObject() {
+      const pmCat = document.getElementById('pmCategoryFilter').value;
+      const cust = document.getElementById('customerSelect').value;
+      const machine = document.getElementById('machineSelect').value;
+
+      return store.find(item => item.pmCategory === pmCat && item.customerName === cust && item.machineName === machine);
+    }
+
+    function addNewCustomerModal() {
+      const cust = prompt('Masukkan Nama PT Customer Baru:');
+      if (!cust) return;
+      const pmCat = prompt('Pilih Kategori (PM Berbayar / PM Prioritas / PM Biasa / PM Backup):', 'PM Biasa');
+      const machine = prompt('Masukkan Nama Unit Blower Pertama:', 'Blower 01');
+
+      if (cust && machine) {
+        store.push({
+          id: Date.now(),
+          customerName: cust,
+          pmCategory: pmCat || 'PM Biasa',
+          machineName: machine,
+          logs: []
+        });
+        saveStore();
+        initFilters();
+      }
+    }
+
+    function addNewUnitPrompt() {
+      const pmCat = document.getElementById('pmCategoryFilter').value;
+      const cust = document.getElementById('customerSelect').value;
+      if (!cust) { alert('Pilih Customer Terlebih Dahulu!'); return; }
+
+      const machine = prompt(`Masukkan Nama Unit Blower Baru untuk ${cust}:`);
+      if (machine) {
+        store.push({
+          id: Date.now(),
+          customerName: cust,
+          pmCategory: pmCat,
+          machineName: machine,
+          logs: []
+        });
+        saveStore();
+        renderMachines();
+        document.getElementById('machineSelect').value = machine;
+        updateUI();
+      }
+    }
+
+    function saveStore() {
+      localStorage.setItem('vibro_root_blower_db', JSON.stringify(store));
+    }
+
+    // 6. NOTIFIKASI JADWAL PENGECEKAN
+    function checkNotifications() {
+      const today = new Date().toISOString().split('T')[0];
+      let overdueUnits = [];
+
+      store.forEach(unit => {
+        if (unit.logs && unit.logs.length > 0) {
+          const latest = unit.logs[unit.logs.length - 1];
+          if (latest.nextDate && latest.nextDate <= today) {
+            overdueUnits.push(`${unit.customerName} - ${unit.machineName} (Jadwal: ${latest.nextDate})`);
+          }
+        }
+      });
+
+      const banner = document.getElementById('notificationBanner');
+      if (overdueUnits.length > 0) {
+        banner.classList.remove('hidden');
+        document.getElementById('notifBadge').innerText = `${overdueUnits.length} UNIT WAJIB DICEK`;
+        document.getElementById('notificationText').innerHTML = `<strong>Peringatan!</strong> Unit berikut telah jatuh tempo pengecekan: ${overdueUnits.join(', ')}`;
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    function updateLimits() {
+      warningLimit = parseFloat(document.getElementById('limitWarning').value) || 2.8;
+      dangerLimit = parseFloat(document.getElementById('limitDanger').value) || 4.5;
+      updateUI();
+    }
+
+    function getStatus(p1, p2, p3, p4, p5, p6) {
+      const maxVal = Math.max(p1, p2, p3, p4, p5, p6);
+      if (maxVal >= dangerLimit) return { text: 'Danger', class: 'bg-rose-500/20 text-rose-400 border-rose-500/30' };
+      if (maxVal >= warningLimit) return { text: 'Warning', class: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
+      return { text: 'Normal', class: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const unitObj = getSelectedUnitObject();
+      if (!unitObj) { alert('Unit belum dipilih!'); return; }
+
+      const editId = document.getElementById('editId').value;
+      const payload = {
+        id: editId ? parseInt(editId) : Date.now(),
+        date: document.getElementById('inputDate').value,
+        time: document.getElementById('inputTime').value,
+        nextDate: document.getElementById('inputNextDate').value,
+        p1: parseFloat(document.getElementById('p1').value),
+        p2: parseFloat(document.getElementById('p2').value),
+        p3: parseFloat(document.getElementById('p3').value),
+        p4: parseFloat(document.getElementById('p4').value),
+        p5: parseFloat(document.getElementById('p5').value),
+        p6: parseFloat(document.getElementById('p6').value)
+      };
+
+      if (editId) {
+        unitObj.logs = unitObj.logs.map(l => l.id === parseInt(editId) ? payload : l);
+      } else {
+        unitObj.logs.push(payload);
+      }
+
+      saveStore();
+      resetForm();
+      checkNotifications();
+      updateUI();
+    }
+
+    function editLog(id) {
+      const unitObj = getSelectedUnitObject();
+      const item = unitObj.logs.find(l => l.id === id);
+      if (!item) return;
+
+      document.getElementById('editId').value = item.id;
+      document.getElementById('inputDate').value = item.date;
+      document.getElementById('inputTime').value = item.time;
+      document.getElementById('inputNextDate').value = item.nextDate;
+      document.getElementById('p1').value = item.p1;
+      document.getElementById('p2').value = item.p2;
+      document.getElementById('p3').value = item.p3;
+      document.getElementById('p4').value = item.p4;
+      document.getElementById('p5').value = item.p5;
+      document.getElementById('p6').value = item.p6;
+
+      document.getElementById('formTitle').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Data Vibrasi Unit';
+      document.getElementById('submitBtn').className = "bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition";
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+    }
+
+    function resetForm() {
+      document.getElementById('vibrationForm').reset();
+      document.getElementById('editId').value = '';
+      document.getElementById('formTitle').innerHTML = 'Input Hasil Vibrasi Unit (<span id="formUnitLabel">Unit</span>)';
+      document.getElementById('submitBtn').className = "bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition";
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+    }
+
+    function deleteLog(id) {
+      if (confirm('Hapus log vibrasi ini?')) {
+        const unitObj = getSelectedUnitObject();
+        unitObj.logs = unitObj.logs.filter(l => l.id !== id);
+        saveStore();
+        checkNotifications();
+        updateUI();
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('dataTableBody');
+      const unitObj = getSelectedUnitObject();
+
+      document.getElementById('formUnitLabel').innerText = unitObj ? unitObj.machineName : '-';
+      document.getElementById('chartUnitTitle').innerText = unitObj ? `${unitObj.customerName} - ${unitObj.machineName}` : '-';
+
+      tbody.innerHTML = '';
+      if (!unitObj || !unitObj.logs || unitObj.logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-500">Belum ada hasil pengukuran vibrasi untuk unit ini.</td></tr>`;
+        return;
+      }
+
+      unitObj.logs.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      unitObj.logs.forEach(item => {
+        const status = getStatus(item.p1, item.p2, item.p3, item.p4, item.p5, item.p6);
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="p-3.5 font-medium">${item.date} <span class="text-slate-500 text-[10px]">${item.time}</span></td>
+            <td class="p-3.5 font-semibold text-blue-300">${unitObj.machineName}</td>
+            <td class="p-3.5">${item.p1}</td>
+            <td class="p-3.5">${item.p2}</td>
+            <td class="p-3.5">${item.p3}</td>
+            <td class="p-3.5">${item.p4}</td>
+            <td class="p-3.5">${item.p5}</td>
+            <td class="p-3.5">${item.p6}</td>
+            <td class="p-3.5"><span class="px-2.5 py-1 text-[10px] font-semibold rounded-lg border ${status.class}">${status.text}</span></td>
+            <td class="p-3.5 text-center space-x-2">
+              <button onclick="editLog(${item.id})" class="p-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg"><i class="fa-solid fa-pen text-xs"></i></button>
+              <button onclick="deleteLog(${item.id})" class="p-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg"><i class="fa-solid fa-trash text-xs"></i></button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function changeChartType() {
+      currentChartType = document.getElementById('chartTypeSelect').value;
+      renderChart();
+    }
+
+    function renderChart() {
+      const ctx = document.getElementById('vibrationChart').getContext('2d');
+      const unitObj = getSelectedUnitObject();
+      const logs = unitObj ? unitObj.logs || [] : [];
+      const labels = logs.map(l => l.date);
+
+      if (vibrationChart) vibrationChart.destroy();
+
+      const datasets = [
+        { label: '1H Motor', data: logs.map(l => l.p1), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.4)' },
+        { label: '1V Motor', data: logs.map(l => l.p2), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.4)' },
+        { label: '1A Motor', data: logs.map(l => l.p3), borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.4)' },
+        { label: '2H Blower', data: logs.map(l => l.p4), borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.4)' },
+        { label: '2V Blower', data: logs.map(l => l.p5), borderColor: '#ec4899', backgroundColor: 'rgba(236, 72, 153, 0.4)' },
+        { label: '2A Blower', data: logs.map(l => l.p6), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.4)' }
+      ];
+
+      vibrationChart = new Chart(ctx, {
+        type: currentChartType,
+        data: { labels: labels, datasets: datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+          scales: currentChartType !== 'radar' ? {
+            x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+            y: { min: 0, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } }
+          } : {
+            r: { grid: { color: '#334155' }, angleLines: { color: '#334155' }, pointLabels: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    function updateUI() {
+      renderTable();
+      renderChart();
+    }
+
+    // RUN INITIALIZATION
+    initFilters();
+  </script>
+</body>
+</html>
